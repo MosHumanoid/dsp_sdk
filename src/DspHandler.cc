@@ -9,7 +9,7 @@
  *
  ************************************************************************/
 
-#include "DspHandler.h"
+#include "DspSDK/DspHandler.h"
 
 #include <fcntl.h>
 #include <stdio.h>
@@ -332,46 +332,46 @@ bool DspHandler::PostProcessingTimeout() {
   return true;
 }
 
-std::vector<double> DspHandler::GetHeadPose() {
-  std::vector<double> head_pose;
-  head_pose.emplace_back(out.headSts.pitch / 512.);
-  head_pose.emplace_back(out.headSts.yaw / 512.);
-  return head_pose;
+Eigen::Vector2d DspHandler::GetHeadPos() {
+  Eigen::Vector2d head_pos;
+  head_pos[0] = out.headSts.pitch / 512.;
+  head_pos[1] = out.headSts.yaw / 512.;
+  return head_pos;
 }
 
-std::vector<double> DspHandler::GetOdometry() {
-  std::vector<double> odometry;
-  odometry.emplace_back(out.odometer.xOffset / 1000.);
-  odometry.emplace_back(out.odometer.yOffset / 1000.);
-  odometry.emplace_back(out.odometer.thetaOffset / 512.);
+Eigen::Vector3d DspHandler::GetOdometry() {
+  Eigen::Vector3d odometry;
+  odometry[0] = out.odometer.xOffset / 1000.;
+  odometry[1] = out.odometer.yOffset / 1000.;
+  odometry[2] = out.odometer.thetaOffset / 512.;
   return odometry;
 }
 
-std::vector<double> DspHandler::GetVelocity() {
-  std::vector<double> velocity;
-  velocity.emplace_back(out.dirSts.xOffset / 1000.);
-  velocity.emplace_back(out.dirSts.yOffset / 1000.);
-  velocity.emplace_back(out.dirSts.thetaOffset / 512.);
+Eigen::Vector3d DspHandler::GetVelocity() {
+  Eigen::Vector3d velocity;
+  velocity[0] = out.dirSts.xOffset / 1000.;
+  velocity[1] = out.dirSts.yOffset / 1000.;
+  velocity[2] = out.dirSts.thetaOffset / 512.;
   return velocity;
 }
 
-std::vector<double> DspHandler::GetImuAngle() {
-  std::vector<double> imu_angle;
-  imu_angle.emplace_back(out.sensors.incline[0] / 512.);
-  imu_angle.emplace_back(out.sensors.incline[1] / 512.);
-  imu_angle.emplace_back(out.sensors.incline[2] / 512.);
+Eigen::Vector3d DspHandler::GetImuAngle() {
+  Eigen::Vector3d imu_angle;
+  imu_angle[0] = out.sensors.incline[0] / 512.;
+  imu_angle[0] = out.sensors.incline[1] / 512.;
+  imu_angle[0] = out.sensors.incline[2] / 512.;
   return imu_angle;
 }
 
-std::vector<double> DspHandler::GetBodyPose() {
-  std::vector<double> body_pose;
-  body_pose.emplace_back(out.isLeft);
-  body_pose.emplace_back(out.torsoPose.offset.x / 1000.);
-  body_pose.emplace_back(out.torsoPose.offset.y / 1000.);
-  body_pose.emplace_back(out.torsoPose.offset.z / 1000.);
-  body_pose.emplace_back(out.torsoPose.pose.alpha / 512.);
-  body_pose.emplace_back(out.torsoPose.pose.beta / 512.);
-  body_pose.emplace_back(out.torsoPose.pose.theta / 512.);
+Eigen::Matrix<double, 7, 1> DspHandler::GetBodyPose() {
+  Eigen::Matrix<double, 7, 1> body_pose;
+  body_pose[0] = out.isLeft;
+  body_pose[1] = out.torsoPose.offset.x / 1000.;
+  body_pose[2] = out.torsoPose.offset.y / 1000.;
+  body_pose[3] = out.torsoPose.offset.z / 1000.;
+  body_pose[4] = out.torsoPose.pose.alpha / 512.;
+  body_pose[5] = out.torsoPose.pose.beta / 512.;
+  body_pose[6] = out.torsoPose.pose.theta / 512.;
   return body_pose;
 }
 
@@ -403,12 +403,12 @@ void DspHandler::SetVelocity(double x, double y, double yaw) {
   in_.dirInst.thetaOffset = short(yaw * 512.);
 }
 
-void DspHandler::SetHeadPose(const std::vector<double>& pose) {
-  in_.headInst.pitch = short(pose[0] * 512.);
-  in_.headInst.yaw = short(pose[1] * 512.);
+void DspHandler::SetHeadPos(const std::vector<double>& pos) {
+  in_.headInst.pitch = short(pos[0] * 512.);
+  in_.headInst.yaw = short(pos[1] * 512.);
 }
 
-void DspHandler::SetHeadPose(double pitch, double yaw) {
+void DspHandler::SetHeadPos(double pitch, double yaw) {
   in_.headInst.pitch = short(pitch * 512.);
   in_.headInst.yaw = short(yaw * 512.);
 }

@@ -17,6 +17,7 @@
 #include <unistd.h>
 #include <string>
 #include <vector>
+#include <Eigen/Core>
 
 #include "DspCmd.h"
 
@@ -92,11 +93,11 @@ class DspHandler {
   bool is_using_;
 
   /**
-   *  GetHeadPose
+   *  GetHeadPos
    *  return vector[0]: pitch in rad
    *               [1]: yaw in rad
    */
-  std::vector<double> GetHeadPose();
+  Eigen::Vector2d GetHeadPos();
 
   /**
    *  GetOdometry
@@ -104,7 +105,7 @@ class DspHandler {
    *               [1]: y odometry in m
    *               [2]: theta odometry in rad
    */
-  std::vector<double> GetOdometry();
+  Eigen::Vector3d GetOdometry();
 
   /**
    *  GetVelocity
@@ -112,7 +113,7 @@ class DspHandler {
    *               [1]: y velocity in m/s
    *               [2]: theta velocity in rad/s
    */
-  std::vector<double> GetVelocity();
+  Eigen::Vector3d GetVelocity();
 
   /**
    *  GetVelocity
@@ -120,7 +121,7 @@ class DspHandler {
    *               [1]: pitch in rad (pitch > 0, robot face to ground)
    *               [2]: yaw in rad
    */
-  std::vector<double> GetImuAngle();
+  Eigen::Vector3d GetImuAngle();
 
   /**
    *  GetBodyPose
@@ -132,7 +133,7 @@ class DspHandler {
    *               [5]: pitch in rad
    *               [6]: yaw in rad
    */
-  std::vector<double> GetBodyPose();
+  Eigen::Matrix<double, 7, 1 > GetBodyPose();
 
   /**
    *  GetGaitDirectionValid
@@ -220,8 +221,8 @@ class DspHandler {
    *  input pose[0]: head pitch in rad
    *            [1]: head yaw in rad
    */
-  void SetHeadPose(const std::vector<double>& pose);
-  void SetHeadPose(double pitch, double yaw);
+  void SetHeadPos(const std::vector<double>& pos);
+  void SetHeadPos(double pitch, double yaw);
 
   /**
    *  SetSpecialGaitId

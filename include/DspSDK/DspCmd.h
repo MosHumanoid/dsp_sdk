@@ -234,7 +234,7 @@ struct OdometerRecord {
 // instruction related static data
 struct StateSwapInput in;
 struct StateSwapOutput out;
-void (*pGetNextFrame)(PSHORT ppitch, PSHORT pyaw);
+void (*pGetNextFrame)(short* ppitch, short* pyaw);
 struct OdometerRecord odometers[MAX_ODOMETER_RECORD];
 
 /*
