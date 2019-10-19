@@ -20,6 +20,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <errno.h>
+#include <iostream>
 
 namespace DspSDK {
 
@@ -29,7 +30,8 @@ DspHandler::DspHandler(const char* port_name)
       port_name_(std::string(port_name)),
       packet_start_time_(0.0),
       packet_timeout_(0.0),
-      tx_time_per_byte(0.0) {
+      tx_time_per_byte(0.0),
+      number_received_(0) {
   is_using_ = false;
 }
 
@@ -63,7 +65,7 @@ void DspHandler::ClearPort() {
 
 bool DspHandler::SetBaudRate(const int baudrate) {
   int baud = GetCFlagBaud(baudrate);
-  ClosePort();
+  // ClosePort();
 
   baudrate_ = baudrate;
   return SetupPort(baud);
@@ -73,6 +75,7 @@ bool DspHandler::SetupPort(int cflag_baud) {
   struct termios newtio;
 
   socket_fd_ = open(port_name_.c_str(), O_RDWR | O_NOCTTY);
+  std::cout << " port_name: " << port_name_ << std::endl;
   if (socket_fd_ < 0) {
     perror("Error opening serial port!\n");
     return false;
@@ -175,6 +178,7 @@ double DspHandler::GetTimeSinceStart() {
 
 void DspHandler::DspThread() {
   memcpy(&in_thread_, &in_, sizeof(in_));
+  std::cout << in_thread_.ctrReg1 << std::endl;
   tcflush(socket_fd_, TCIFLUSH);
 
   start_packet_.id = ID_DSP;
@@ -205,7 +209,7 @@ void DspHandler::DspThread() {
       tv.tv_usec = 200000;
       continue;
     } else if (retval_ == 0) {
-      printf("%d waiting reply timeout warning ******\n", retval_);
+      std::cout << "*** waiting reply timeout warning *****" << std::endl;
     }
     retval_ = ReadPort(info_, sizeof(info_));
     if (retval_ <= 0) {
@@ -267,26 +271,26 @@ bool DspHandler::PacketReconstrct(unsigned char received) {
   if (number_received_ >= 5) {
     DSP_STATUS_PACKET* info;
     info = (DSP_STATUS_PACKET*)(packet_buffer_ + 2);
-    if (number_received_ == (size_t)info->length + 4 - 1) {
+    if (number_received_ == (unsigned int)info->length + 4 - 1) {
       packet_buffer_[number_received_++] = received;
       memcpy(packet_to_proc_, packet_buffer_, number_received_);
       number_received_ = 0;
       return true;
-    } else if (number_received_ < (size_t)info->length + 4 - 1) {
-      packet_buffer_[number_received_] = received;
+    } else if (number_received_ < (unsigned int)info->length + 4 - 1) {
+      packet_buffer_[number_received_++] = received;
     }
   } else if (number_received_ >= 3) {
     packet_buffer_[number_received_++] = received;
   } else if (number_received_ >= 2) {
     if (received == ID_DSP) {
-      packet_buffer_[number_received_] = received;
+      packet_buffer_[number_received_++] = received;
     } else {
       number_received_ = 0;
       return false;
     }
   } else {
     if (received == 0xff) {
-      packet_buffer_[number_received_] = received;
+      packet_buffer_[number_received_++] = received;
     } else {
       number_received_ = 0;
       return false;
@@ -306,7 +310,8 @@ bool DspHandler::PostProcessingStateSwap(DSP_STATUS_PACKET* packet) {
           data[i] =
               packet->parameter[2 * i] + (packet->parameter[2 * i + 1] << 8);
         }
-      } break;  // end of case INST_STATE_SWAP
+        break;
+      }  // end of case INST_STATE_SWAP
       default:
         break;
     }  // end of switch
@@ -398,6 +403,7 @@ void DspHandler::SetVelocity(const std::vector<double>& velocity) {
 }
 
 void DspHandler::SetVelocity(double x, double y, double yaw) {
+  std::cout << "x: " << x << " y: " << y << " yaw: " << yaw << std::endl;
   in_.dirInst.xOffset = short(x * 1000.);
   in_.dirInst.yOffset = short(y * 1000.);
   in_.dirInst.thetaOffset = short(yaw * 512.);
