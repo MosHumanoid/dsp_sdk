@@ -84,3 +84,4 @@ lib64/
 *.swp
 tags
 cscope.*
+.catkin_tools/

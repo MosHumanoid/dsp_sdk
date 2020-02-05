@@ -24,8 +24,9 @@
 
 namespace DspSDK {
 
-DspHandler::DspHandler(const char* port_name)
-    : socket_fd_(-1),
+DspHandler::DspHandler(const char* port_name, bool do_fake)
+    : do_fake_(do_fake),
+      socket_fd_(-1),
       baudrate_(DEFAULT_BAUDRATE_),
       port_name_(std::string(port_name)),
       packet_start_time_(0.0),
@@ -50,11 +51,12 @@ void DspHandler::Init() {
 }
 
 bool DspHandler::OpenPort() {
+  if (do_fake_) return true;
   return SetBaudRate(baudrate_);
 }
 
 void DspHandler::ClosePort() {
-  if (socket_fd_ != -1)
+  if (socket_fd_ != -1 && !do_fake_)
     close(socket_fd_);
   socket_fd_ = -1;
 }
@@ -72,6 +74,8 @@ bool DspHandler::SetBaudRate(const int baudrate) {
 }
 
 bool DspHandler::SetupPort(int cflag_baud) {
+  if (do_fake_)
+    return true;
   struct termios newtio;
 
   socket_fd_ = open(port_name_.c_str(), O_RDWR | O_NOCTTY);
@@ -177,6 +181,10 @@ double DspHandler::GetTimeSinceStart() {
 }
 
 void DspHandler::DspThread() {
+  if (do_fake_) {
+    usleep(100000);
+    return;
+  }
   memcpy(&in_thread_, &in_, sizeof(in_));
   std::cout << in_thread_.ctrReg1 << std::endl;
   tcflush(socket_fd_, TCIFLUSH);
@@ -230,7 +238,8 @@ void DspHandler::DspThread() {
   if (!process_sucess_) PostProcessingTimeout();
 }
 
-size_t DspHandler::CompressPacket(unsigned char* output, DSP_INST_PACKET* packet) {
+size_t DspHandler::CompressPacket(unsigned char* output,
+                                  DSP_INST_PACKET* packet) {
   unsigned char check_sum = 0;
   unsigned char* packet_char = (unsigned char*)packet;
   size_t ret = 0;
@@ -341,6 +350,9 @@ Eigen::Vector2d DspHandler::GetHeadPos() {
   Eigen::Vector2d head_pos;
   head_pos[0] = out.headSts.pitch / 512.;
   head_pos[1] = out.headSts.yaw / 512.;
+  // if (do_fake_)
+  //   std::cout << "DspHandler::GetHeadPos: " << head_pos[0] << " "
+  //             << head_pos[1] << std::endl;
   return head_pos;
 }
 
@@ -349,6 +361,9 @@ Eigen::Vector3d DspHandler::GetOdometry() {
   odometry[0] = out.odometer.xOffset / 1000.;
   odometry[1] = out.odometer.yOffset / 1000.;
   odometry[2] = out.odometer.thetaOffset / 512.;
+  // if (do_fake_)
+  //   std::cout << "DspHandler::GetOdometry: " << odometry[0] << " "
+  //             << odometry[1] << " " << odometry[2] << std::endl;
   return odometry;
 }
 
@@ -357,6 +372,9 @@ Eigen::Vector3d DspHandler::GetVelocity() {
   velocity[0] = out.dirSts.xOffset / 1000.;
   velocity[1] = out.dirSts.yOffset / 1000.;
   velocity[2] = out.dirSts.thetaOffset / 512.;
+  // if (do_fake_)
+  //   std::cout << "DspHandler::GetVelocity: " << velocity[0] << " "
+  //             << velocity[1] << " " << velocity[2] << std::endl;
   return velocity;
 }
 
@@ -365,6 +383,9 @@ Eigen::Vector3d DspHandler::GetImuAngle() {
   imu_angle[0] = out.sensors.incline[0] / 512.;
   imu_angle[0] = out.sensors.incline[1] / 512.;
   imu_angle[0] = out.sensors.incline[2] / 512.;
+  // if (do_fake_)
+  //   std::cout << "DspHandler::GetImuAngle: " << imu_angle[0] << " "
+  //             << imu_angle[1] << " " << imu_angle[2] << std::endl;
   return imu_angle;
 }
 
@@ -377,6 +398,11 @@ Eigen::Matrix<double, 7, 1> DspHandler::GetBodyPose() {
   body_pose[4] = out.torsoPose.pose.alpha / 512.;
   body_pose[5] = out.torsoPose.pose.beta / 512.;
   body_pose[6] = out.torsoPose.pose.theta / 512.;
+  // if (do_fake_)
+  //   std::cout << "DspHandler::GetBodyPose: " << body_pose[0] << " "
+  //             << body_pose[1] << " " << body_pose[2] << " " << body_pose[3] << " "
+  //             << body_pose[4] << " " << body_pose[5] << " " << body_pose[6]
+  //             << std::endl;
   return body_pose;
 }
 
@@ -384,6 +410,9 @@ std::vector<bool> DspHandler::GetWalkKick() {
   std::vector<bool> walk_kick;
   walk_kick.emplace_back(out_.stsReg1 & WALK_KICK_LEFT);
   walk_kick.emplace_back(out_.stsReg1 & WALK_KICK_RIGHT);
+  // if (do_fake_)
+  //   std::cout << "DspHandler::GetWalkKick: WALK_KICK_LEFT? " << walk_kick[0]
+  //             << " WALK_KICK_RIGHT? " << walk_kick[1] << std::endl;
   return walk_kick;
 }
 
@@ -393,6 +422,11 @@ std::vector<bool> DspHandler::GetSpecialGaitState() {
   state.emplace_back(out_.stsReg2 & GAIT_RESET_PENDING);
   state.emplace_back(out_.stsReg2 & RESET_ODOMETER_PENDING);
   state.emplace_back(out_.stsReg2 & WALK_KICK_PENDING);
+  // if (do_fake_)
+  //   std::cout << "DspHandler::GetSpecialGaitState:SPECIAL_GAIT_PENDING? "
+  //             << state[0] << " GAIT_RESET_PENDING? " << state[1]
+  //             << " RESET_ODOMETER_PENDING? " << state[2]
+  //             << " WALK_KICK_PENDING?" << state[3] << std::endl;
   return state;
 }
 
@@ -400,31 +434,48 @@ void DspHandler::SetVelocity(const std::vector<double>& velocity) {
   in_.dirInst.xOffset = short(velocity[0] * 1000.);
   in_.dirInst.yOffset = short(velocity[1] * 1000.);
   in_.dirInst.thetaOffset = short(velocity[2] * 512.);
+  // if (do_fake_)
+  //   std::cout << "DspHandler::SetVelocity velocity: " << velocity[0]
+  //             << " " << velocity[1] << " " << velocity[2] << std::endl;
 }
 
 void DspHandler::SetVelocity(double x, double y, double yaw) {
-  std::cout << "x: " << x << " y: " << y << " yaw: " << yaw << std::endl;
+  // if (do_fake_)
+  //   std::cout << "DspHandler::SetVelocity x: " << x << " y: " << y
+  //             << " yaw: " << yaw << std::endl;
   in_.dirInst.xOffset = short(x * 1000.);
   in_.dirInst.yOffset = short(y * 1000.);
   in_.dirInst.thetaOffset = short(yaw * 512.);
 }
 
 void DspHandler::SetHeadPos(const std::vector<double>& pos) {
+  // if (do_fake_)
+  //   std::cout << "DspHandler::SetHeadPos: " << pos[0] << " " << pos[1]
+  //             << std::endl;
   in_.headInst.pitch = short(pos[0] * 512.);
   in_.headInst.yaw = short(pos[1] * 512.);
 }
 
 void DspHandler::SetHeadPos(double pitch, double yaw) {
+  // if (do_fake_)
+  //   std::cout << "DspHandler::SetHeadPos: pitch " << pitch << " yaw "
+  //             << yaw << std::endl;
   in_.headInst.pitch = short(pitch * 512.);
   in_.headInst.yaw = short(yaw * 512.);
 }
 
 void DspHandler::SetSpecialGaitId(const std::vector<int>& special_gait) {
+  // if (do_fake_)
+  //   std::cout << "DspHandler::SetSpecialGaitId(vector) id " << special_gait[0]
+  //             << " repeat " << special_gait[1] << std::endl;
   in_.spcInst.id = short(special_gait[0]);
   in_.spcInst.times = short(special_gait[1]);
 }
 
 void DspHandler::SetSpecialGaitId(int id, int repeat) {
+  // if (do_fake_)
+  //   std::cout << "DspHandler::SetSpecialGaitId id " << id << " repeat "
+  //             << repeat << std::endl;
   in_.spcInst.id = short(id);
   in_.spcInst.times = short(repeat);
 }

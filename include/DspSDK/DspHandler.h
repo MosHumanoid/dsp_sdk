@@ -30,7 +30,7 @@ class DspHandler {
 
   static DspHandler* GetDspHandler(const char* port_name);
 
-  DspHandler(const char* port_name);
+  DspHandler(const char* port_name, bool do_fake = false);
   ~DspHandler() { ClosePort(); }
 
   void Init();
@@ -230,7 +230,7 @@ class DspHandler {
    *                    [1]: how many times will repeats
    */
   void SetSpecialGaitId(const std::vector<int>& special_gait);
-  void SetSpecialGaitId(int id, int repeat);
+  void SetSpecialGaitId(int id, int repeat = 1);
 
   /**
    *  Set some states to dsp
@@ -259,13 +259,13 @@ class DspHandler {
     else
       in_.ctrReg1 &= ~SPECIAL_GAIT_VALID;
   }
-  inline void SetWalkKickLeft(bool valid) {
+  inline void DoWalkKickLeft(bool valid) {
     if (valid)
       in_.ctrReg1 |= WALK_KICK_LEFT;
     else
       in_.ctrReg1 &= ~WALK_KICK_LEFT;
   }
-  inline void SetWalkKickRight(bool valid) {
+  inline void DoWalkKickRight(bool valid) {
     if (valid)
       in_.ctrReg1 |= WALK_KICK_RIGHT;
     else
@@ -291,6 +291,7 @@ class DspHandler {
   }
 
  private:
+  bool do_fake_;
   bool SetupPort(const int cflag_baud);
   int GetCFlagBaud(const int baudrate);
 
